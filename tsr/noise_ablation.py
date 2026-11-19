@@ -86,11 +86,14 @@ def plot():
     with open(CSV, newline="") as f:
         rows = list(csv.DictReader(f))
     ink, muted, grid, surface = "#0b0b0b", "#898781", "#e1e0d9", "#fcfcfb"
-    series = {  # name -> (label, colour, dash, marker, x offset so the points do not overlap)
-        "none": ("No restoration", "#52514e", "-", "o", -0.18),
-        "bm3d_oracle": ("BM3D, oracle σ", "#2a78d6", (0, (4, 2)), "s", -0.06),
-        "bm3d_estimated": ("BM3D, estimated σ", "#2a78d6", "-", "D", 0.06),
-        "dncnn_pretrained": ("DnCNN-B, pretrained", "#eb6834", "-", "^", 0.18),
+    # name -> (label, colour, dash, marker, x offset so the points do not overlap).
+    # Colour is the method family; dashed is the reference variant, solid the deployable one.
+    series = {
+        "none": ("No restoration", "#52514e", "-", "o", -0.24),
+        "bm3d_oracle": ("BM3D, oracle σ", "#2a78d6", (0, (4, 2)), "s", -0.12),
+        "bm3d_estimated": ("BM3D, estimated σ", "#2a78d6", "-", "D", 0.0),
+        "dncnn_pretrained": ("DnCNN-B, pretrained", "#eb6834", (0, (4, 2)), "^", 0.12),
+        "dncnn_finetuned": ("DnCNN-B, fine-tuned", "#eb6834", "-", "v", 0.24),
     }
     slot = {str(s): i for i, s in enumerate(config.NOISE_SIGMAS)}  # evenly spaced noise levels
     plt.rcParams.update({"font.family": "Segoe UI", "font.size": 10})

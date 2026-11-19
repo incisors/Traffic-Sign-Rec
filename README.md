@@ -158,7 +158,9 @@ low, high = group_ci(res["correct"], "val")                # 95% interval
 
 Rules we both follow:
 
-- **Develop on `val`.** The test split is evaluated once, at the very end.
+- **Develop on `val`.** The test split is evaluated once, at the very end. (While the
+  pipeline was being set up, clean and no-restoration accuracy were printed once on the
+  test split; no restoration method has been run on it.)
 - **Report intervals with `group_ci`.** Frames of one road segment show the same sign and
   are not independent; with only 32 groups per split the intervals are wide (several
   points), so small differences between methods are not meaningful.
@@ -178,23 +180,75 @@ Rules we both follow:
 The first two are switches in `tsr/config.py` (`WINDOW`, `UPSAMPLE`, `DEMOSAIC_AIUA`).
 Changing either one means retraining the classifier and rerunning everything.
 
-## Noise results so far (validation split, Top-1 %)
+## Noise results (Artifact A, validation split)
+
+Status on 2026-11-18. 353 validation signs from 32 road segments; clean accuracy is 98.0%.
+The test split has not been used to compare methods.
+
+![Top-1 accuracy against noise level](results/noise_ablation.png)
+
+**Top-1 accuracy (%)**, with the 95% interval from resampling road segments:
 
 | Method | sigma 15 | sigma 25 | sigma 50 |
 |---|---|---|---|
-| No restoration | 78.2 | 49.9 | 15.0 |
-| BM3D, oracle sigma | 96.9 | 94.3 | 84.7 |
-| BM3D, estimated sigma | 96.6 | 93.5 | 82.2 |
-| DnCNN-B, pretrained | 96.9 | 93.2 | 83.0 |
-| DnCNN-B, fine-tuned on LISA | 97.2 | 95.2 | 85.0 |
+| No restoration | 78.2 [68.0, 88.3] | 49.9 [37.3, 64.3] | 15.0 [4.9, 28.9] |
+| BM3D, oracle sigma | 96.9 [93.0, 100] | 94.3 [90.1, 98.5] | 84.7 [77.5, 91.9] |
+| BM3D, estimated sigma | 96.6 [92.3, 100] | 93.5 [89.4, 97.6] | 82.2 [73.6, 90.5] |
+| DnCNN-B, pretrained | 96.9 [93.5, 99.7] | 93.2 [88.3, 97.6] | 83.0 [74.6, 91.5] |
+| DnCNN-B, fine-tuned on LISA | 97.2 [93.8, 100] | 95.2 [91.4, 98.8] | 85.0 [77.9, 92.2] |
 
-Clean accuracy is 98.0%. Full numbers are in `results/noise_ablation.csv`. The
-accuracy-tuned BM3D row of the ablation is not finished yet.
+**PSNR (dB) / SSIM** of the restored window against the clean window:
+
+| Method | sigma 15 | sigma 25 | sigma 50 |
+|---|---|---|---|
+| No restoration | 24.90 / 0.570 | 20.69 / 0.399 | 15.27 / 0.208 |
+| BM3D, oracle sigma | 36.50 / 0.957 | 33.33 / 0.927 | 27.88 / 0.846 |
+| BM3D, estimated sigma | 36.28 / 0.955 | 33.02 / 0.921 | 27.59 / 0.831 |
+| DnCNN-B, pretrained | 36.38 / 0.956 | 33.23 / 0.926 | 27.76 / 0.845 |
+| DnCNN-B, fine-tuned on LISA | 37.10 / 0.960 | 34.46 / 0.936 | 30.62 / 0.875 |
+
+**Accuracy differences on the same samples** (points, 95% interval):
+
+| Comparison | sigma 15 | sigma 25 | sigma 50 |
+|---|---|---|---|
+| Fine-tuned minus pretrained DnCNN | +0.3 [0.0, +1.1] | +2.0 [+0.3, +3.8] | +2.0 [-0.5, +4.4] |
+| Fine-tuned DnCNN minus oracle BM3D | +0.3 [-0.7, +1.2] | +0.8 [-0.5, +2.3] | +0.3 [-3.0, +3.3] |
+| Fine-tuned DnCNN minus estimated BM3D | +0.6 [-0.7, +1.8] | +1.7 [+0.5, +3.3] | +2.8 [-0.8, +6.7] |
+| Oracle minus estimated BM3D | +0.3 [0.0, +0.8] | +0.8 [0.0, +1.9] | +2.5 [-0.7, +5.8] |
+
+What these show:
+
+- **Denoising recovers most of the loss.** At sigma 50 accuracy goes from 15% to 82-85%;
+  at sigma 15 every method is within about a point of the clean accuracy.
+- **Fine-tuning DnCNN helps.** It adds 2.0 points over the pretrained model at sigma 25
+  (interval excludes zero) and at sigma 50 (interval includes zero).
+- **Fine-tuned DnCNN and BM3D are tied in accuracy.** It is numerically ahead of
+  oracle-sigma BM3D at every level, but by less than a point, well inside the intervals.
+  Against the deployable estimated-sigma BM3D it is ahead by 1.7 points at sigma 25
+  (interval excludes zero).
+- **PSNR is not a stand-in for recognition.** Fine-tuned DnCNN gains 2.7 dB over BM3D at
+  sigma 50, yet accuracy is the same.
+- **The blind sigma estimate is biased low at heavy noise**, because noisy pixels are
+  clipped to [0, 255]: its mean absolute error is 0.8, 2.2 and 8.3 at sigma 15, 25, 50.
+  This is what separates estimated-sigma from oracle-sigma BM3D.
+- **Runtime.** DnCNN takes about 0.04 s per full frame on an RTX 4080. BM3D takes about
+  6 s per full frame on a 16-core CPU (1.5 s for the region around one sign).
+
+**Accuracy-tuned BM3D** (running BM3D at `alpha * estimated sigma`, with `alpha` chosen for
+recognition instead of PSNR) has one pilot run only: `alpha = 1.25` at sigma 50 gives
+85.0% [78.4, 91.8], which closes the gap to oracle-sigma BM3D (84.7%). The rest of the
+`alpha` scan has not been run.
+
+Full numbers are in `results/noise_ablation.csv`; per-sample outcomes are in
+`results/noise_ablation_correct.npz`.
 
 ```bash
 python -m tsr.noise_ablation dncnn_pretrained dncnn_finetuned   # GPU, about a minute
 python -m tsr.noise_ablation bm3d_estimated                     # CPU, about 30 minutes
 ```
+
+BM3D ignores `OMP_NUM_THREADS` and otherwise takes every core, so these runs are pinned to
+8 logical CPUs by default (`--cores N` to change).
 
 The pretrained DnCNN weights come from [cszn/KAIR](https://github.com/cszn/KAIR):
 
