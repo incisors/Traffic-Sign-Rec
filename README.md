@@ -106,8 +106,8 @@ noise field and blur angle on every machine. `numpy` is pinned for this reason.
 ## Setup
 
 ```bash
-git clone https://github.com/incisors/Traffic-Sign-Image-Processing.git
-cd Traffic-Sign-Image-Processing
+git clone https://github.com/incisors/Traffic-Sign-Rec.git
+cd Traffic-Sign-Rec
 python -m venv .venv
 .venv/Scripts/activate            # Windows; on Linux/macOS: source .venv/bin/activate
 pip install torch==2.14.1 torchvision==0.29.1 --index-url https://download.pytorch.org/whl/cu126
