@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+
+# Downloaded, not redistributed (see README)
+data/LISA/
+data/dncnn/dncnn_color_blind.pth

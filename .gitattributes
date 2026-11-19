@@ -1,0 +1,2 @@
+# Keep CSV files byte-for-byte: the manifest is checked against a rebuilt copy.
+*.csv -text
